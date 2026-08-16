@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vinit Sarode — CAD geometry &amp; machine learning</title>
+<meta name="description" content="I teach machines to understand CAD geometry. Most 3D machine learning throws the CAD away — I build the models that read it. B-rep neural networks, manufacturability, and automated CNC quoting.">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Instrument+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   PALETTE
+
+   Warm near-black ground with cool pewter accents — the material
+   palette of a machine shop: oiled steel against a wooden bench.
+   The warm/cool tension does the work a bright accent colour was
+   doing before, without shouting. There is no saturated colour on
+   this page; hierarchy is carried by type and space.
+   ============================================================ */
+:root{
+  --ink:#100E0C;
+  --ink-2:#16130F;
+  --rule:#292420;
+  --rule-soft:#1E1A17;
+  --bone:#F3EEE6;
+  --bone-dim:#9C948A;
+  --bone-faint:#6B645C;
+  --steel:#AFBCC4;
+  --steel-deep:#5E6B75;
+
+  --paper:#EDE8DE;
+  --paper-ink:#191512;
+  --paper-dim:#6D655C;
+  --paper-rule:#D6CFC3;
+
+  --serif:'Newsreader',Georgia,serif;
+  --sans:'Instrument Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --pad:clamp(1.5rem,6vw,6.5rem);
+  --maxw:1280px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--ink);
+  color:var(--bone);
+  font-family:var(--sans);
+  font-size:1.0625rem;
+  line-height:1.72;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:1px solid var(--steel);outline-offset:4px}
+.wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:var(--pad)}
+
+/* Labels are letterspaced sans, not monospace. Mono appears exactly
+   once on this page — on the live readout, where the content is data. */
+.label{
+  font-family:var(--sans);
+  font-size:.6875rem;
+  font-weight:500;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--bone-faint);
+}
+
+h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.02em}
+h1{font-size:clamp(1.95rem,1.05rem + 2.8vw,3.3rem);line-height:1.06;text-wrap:balance}
+h2{font-size:clamp(1.9rem,1.2rem + 2.4vw,3rem);line-height:1.1;text-wrap:balance}
+h3{font-size:1.3rem;line-height:1.3}
+em{font-style:italic}
+
+/* ============================================================ NAV */
+.nav{
+  position:sticky;top:0;z-index:50;
+  background:rgba(16,14,12,.78);
+  backdrop-filter:blur(14px) saturate(140%);
+  border-bottom:1px solid var(--rule-soft);
+}
+.nav__in{display:flex;align-items:center;justify-content:space-between;gap:2rem;height:76px}
+.nav__name{font-family:var(--serif);font-size:1.2rem;letter-spacing:-.01em}
+.nav__links{display:flex;gap:2.4rem;align-items:center}
+.nav__links a{
+  font-size:.9rem;color:var(--bone-dim);
+  transition:color .25s ease;
+}
+.nav__links a:hover{color:var(--bone)}
+.nav__hire{
+  color:var(--bone)!important;
+  border-bottom:1px solid var(--bone-faint);
+  padding-bottom:2px;
+}
+.nav__hire:hover{border-color:var(--bone)}
+@media(max-width:780px){.nav__links a:not(.nav__hire){display:none}}
+
+/* ============================================================ BUTTONS
+   No filled colour. The primary is bone on ink — maximum contrast,
+   zero chroma. The secondary is a hairline. */
+.btn{
+  display:inline-flex;align-items:center;
+  font-size:.9375rem;font-weight:500;
+  padding:.9rem 1.6rem;border-radius:999px;
+  border:1px solid transparent;
+  transition:background .28s ease,border-color .28s ease,color .28s ease;
+}
+.btn--solid{background:var(--bone);color:var(--ink)}
+.btn--solid:hover{background:#fff}
+.btn--line{border-color:var(--rule);color:var(--bone)}
+.btn--line:hover{border-color:var(--bone-faint);background:rgba(243,238,230,.045)}
+
+/* ============================================================ HERO */
+.hero{
+  position:relative;
+  height:clamp(680px,90vh,900px);
+  background:radial-gradient(110% 82% at 60% 32%,#1D1915 0%,#14110E 48%,#100E0C 100%);
+  border-bottom:1px solid var(--rule-soft);
+  overflow:hidden;
+}
+.hero__gl{position:absolute;inset:0}
+#gl{position:absolute;inset:0;display:block;width:100%;height:100%}
+.hero__scrim{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:
+    linear-gradient(to top,rgba(16,14,12,.97) 3%,rgba(16,14,12,.7) 30%,rgba(16,14,12,0) 62%),
+    linear-gradient(to right,rgba(16,14,12,.8) 0%,rgba(16,14,12,.2) 46%,rgba(16,14,12,0) 74%);
+}
+.hero__body{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  padding-bottom:clamp(2.5rem,5vw,4.25rem);
+}
+.hero__grid{display:flex;align-items:flex-end;justify-content:space-between;gap:3rem}
+
+.hero__kicker{
+  font-size:1.0625rem;color:var(--bone-dim);
+  margin-bottom:1.5rem;
+}
+h1 em{display:block;color:var(--bone-dim)}
+.hero__sub{
+  margin-top:1.5rem;
+  display:grid;gap:1.35rem 3.25rem;
+  max-width:54ch;
+  color:var(--bone-dim);font-size:1.0625rem;
+}
+/* two columns only once each has a readable measure of its own */
+@media(min-width:1150px){
+  .hero__sub{grid-template-columns:1fr 1fr;max-width:64rem;gap:0 3.25rem}
+  .hero__sub p{max-width:44ch}
+}
+.hero__actions{display:flex;flex-wrap:wrap;gap:.85rem;margin-top:2.25rem}
+
+/* readout — the one monospace element */
+.tblock{flex:none;text-align:right;padding-bottom:.5rem;min-width:200px}
+.tblock__row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:2rem;
+  padding:.6rem 0;border-bottom:1px solid var(--rule-soft);
+}
+.tblock__row:first-child{border-top:1px solid var(--rule-soft)}
+.tblock__v{font-family:var(--mono);font-size:.78rem;color:var(--steel);letter-spacing:.02em}
+.tblock__note{margin-top:1.1rem;text-align:right;line-height:1.9}
+
+@media(max-width:900px){
+  .hero{height:auto}
+  .hero__gl{position:relative;inset:auto;height:360px}
+  .hero__scrim{background:linear-gradient(to top,rgba(16,14,12,.96) 0%,rgba(16,14,12,0) 48%)}
+  .hero__body{position:static;padding-block:1rem 3.5rem}
+  .hero__grid{flex-direction:column;align-items:flex-start;gap:2.75rem}
+  .tblock{text-align:left;width:100%}
+  .tblock__note{text-align:left}
+}
+
+/* entrance */
+.rise{opacity:0;transform:translateY(14px);animation:rise .9s cubic-bezier(.16,.8,.3,1) forwards}
+.rise:nth-child(2){animation-delay:.09s}
+.rise:nth-child(3){animation-delay:.18s}
+.rise:nth-child(4){animation-delay:.27s}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* ============================================================ PROOF */
+.proof{border-bottom:1px solid var(--rule-soft)}
+.proof__in{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  padding-block:clamp(3rem,5vw,4.5rem);
+}
+.fig{padding-right:2rem}
+.fig + .fig{padding-left:2.75rem;border-left:1px solid var(--rule-soft)}
+.fig__n{
+  font-family:var(--serif);font-weight:300;
+  font-size:clamp(2.2rem,1.6rem + 1.6vw,2.9rem);
+  line-height:1;letter-spacing:-.02em;
+}
+.fig__l{margin-top:.9rem;font-size:.9rem;color:var(--bone-dim);line-height:1.6}
+@media(max-width:760px){
+  .fig{padding:1.6rem 0}
+  .fig + .fig{padding-left:0;border-left:0;border-top:1px solid var(--rule-soft)}
+}
+
+/* ============================================================ SECTIONS */
+.sec{padding-block:clamp(4.5rem,9vw,8.5rem)}
+.sec__head{max-width:60ch;margin-bottom:clamp(3rem,6vw,5rem)}
+.sec__head h2{margin-top:1.4rem}
+.sec__head p{margin-top:1.5rem;color:var(--bone-dim);max-width:52ch}
+
+/* ---- light section: fine paper, not a blueprint ---- */
+.paper{background:var(--paper);color:var(--paper-ink);position:relative;overflow:hidden}
+.paper::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(25,21,18,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(25,21,18,.045) 1px,transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(90% 70% at 50% 0%,#000 0%,transparent 78%);
+  -webkit-mask-image:radial-gradient(90% 70% at 50% 0%,#000 0%,transparent 78%);
+}
+.paper .wrap{position:relative}
+.paper .label{color:var(--paper-dim)}
+.paper .sec__head p{color:var(--paper-dim)}
+
+.offers{display:grid;gap:clamp(2.5rem,4vw,3.5rem)}
+@media(min-width:900px){.offers{grid-template-columns:repeat(3,1fr);gap:clamp(2rem,3.5vw,4rem)}}
+.offer{display:flex;flex-direction:column;gap:1.5rem;padding-top:2rem;border-top:1px solid var(--paper-rule)}
+.offer svg{width:100%;height:auto;max-width:168px;color:var(--paper-ink)}
+.offer p{font-size:1rem;color:var(--paper-dim);line-height:1.7}
+.offer .label{margin-top:auto;padding-top:.5rem}
+
+/* ---- domains ---- */
+.doms{display:grid;gap:2.5rem}
+@media(min-width:900px){.doms{grid-template-columns:repeat(3,1fr);gap:0}}
+.dom{padding-top:2rem;border-top:1px solid var(--rule)}
+@media(min-width:900px){
+  .dom{padding:0 3rem;border-top:0;border-left:1px solid var(--rule)}
+  .dom:first-child{padding-left:0;border-left:0}
+  .dom:last-child{padding-right:0}
+}
+.dom h3{margin:1rem 0 .85rem}
+.dom p{font-size:1rem;color:var(--bone-dim)}
+
+/* ---- contact ---- */
+.cta{background:var(--ink-2);border-top:1px solid var(--rule-soft)}
+.cta__in{display:grid;gap:clamp(3rem,5vw,5rem);align-items:end}
+@media(min-width:900px){.cta__in{grid-template-columns:1.25fr 1fr}}
+.cta h2{margin-top:1.4rem}
+.cta p{margin-top:1.5rem;max-width:42ch;color:var(--bone-dim)}
+.links{display:flex;flex-direction:column}
+.link{
+  display:flex;justify-content:space-between;align-items:center;gap:1.5rem;
+  padding:1.15rem 0;border-bottom:1px solid var(--rule);
+  font-size:1rem;transition:color .25s ease,padding-left .25s ease;
+}
+.link:first-child{border-top:1px solid var(--rule)}
+.link i{font-style:normal;color:var(--bone-faint);font-size:.85rem}
+.link:hover{padding-left:.45rem}
+.link:hover i{color:var(--bone-dim)}
+
+/* ---- footer ---- */
+footer{border-top:1px solid var(--rule-soft)}
+.foot__in{
+  padding-block:2.5rem;display:flex;flex-wrap:wrap;gap:1rem;
+  justify-content:space-between;align-items:center;
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .rise{opacity:1;transform:none;animation:none}
+  *{transition-duration:.01ms!important}
+}
+</style>
+</head>
+
+<body>
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="nav__name" href="#top">Vinit Sarode</a>
+    <nav class="nav__links">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a class="nav__hire" href="#contact">Work with me</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ==================== HERO ==================== -->
+<section class="hero">
+  <div class="hero__gl">
+    <canvas id="gl" aria-label="A machined flange rendered three ways: as a sampled point cloud, as a triangulated mesh, and as a B-rep wireframe."></canvas>
+    <div class="hero__scrim" aria-hidden="true"></div>
+  </div>
+
+  <div class="hero__body">
+    <div class="wrap hero__grid">
+
+      <div class="hero__copy">
+        <p class="hero__kicker rise">I teach machines to understand CAD geometry.</p>
+        <h1 class="rise">Most 3D machine learning throws the CAD away.<em>I build the models that read it.</em></h1>
+        <div class="hero__sub rise">
+          <p>
+            The hard part was never the model. It's getting a machine to see a fillet, a
+            pocket, a thin wall — the way a machinist does.
+          </p>
+          <p>
+            Geometry is where these systems break. Cost models, DFM checks, quoting — all of
+            it is only as good as what the model understood about the shape.
+          </p>
+        </div>
+        <div class="hero__actions rise">
+          <a class="btn btn--solid" href="#contact">Work with me</a>
+          <a class="btn btn--line" href="#work">See what I build</a>
+        </div>
+      </div>
+
+      <div class="tblock">
+        <div class="tblock__row">
+          <span class="label">Rep</span>
+          <span class="tblock__v" id="ro-stage">Point cloud</span>
+        </div>
+        <div class="tblock__row">
+          <span class="label">Data</span>
+          <span class="tblock__v" id="ro-data">&mdash;</span>
+        </div>
+        <div class="tblock__row">
+          <span class="label">View</span>
+          <span class="tblock__v" id="ro-idx">01 / 03</span>
+        </div>
+        <p class="label tblock__note">
+          Ten analytic faces on a uv grid.<br>One dataset, three representations.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PROOF ==================== -->
+<section class="proof">
+  <div class="wrap proof__in">
+    <div class="fig">
+      <div class="fig__n">Five</div>
+      <p class="fig__l">Peer-reviewed papers in 3D vision — 3DV, ICCV, NeurIPS workshops</p>
+    </div>
+    <div class="fig">
+      <div class="fig__n">847</div>
+      <p class="fig__l">Stars on learning3d, an open-source library for deep learning on point clouds</p>
+    </div>
+    <div class="fig">
+      <div class="fig__n">Eight</div>
+      <p class="fig__l">Years building machine learning systems that run in production</p>
+    </div>
+    <div class="fig">
+      <div class="fig__n">CMU</div>
+      <p class="fig__l">Robotics Institute — Biorobotics Lab, under Prof. Howie Choset</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== WORK ==================== -->
+<section class="paper sec" id="work">
+  <div class="wrap">
+
+    <div class="sec__head">
+      <span class="label">What I build</span>
+      <h2>A B-rep knows it's a cylinder. A mesh only knows it's triangles.</h2>
+      <p>
+        That difference decides everything downstream. Recognise a feature, estimate a cost,
+        flag a manufacturability problem — each one depends on topology the mesh has already
+        discarded. I work at the level where it still exists.
+      </p>
+    </div>
+
+    <div class="offers">
+
+      <article class="offer">
+        <svg viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width=".9" aria-hidden="true">
+          <path d="M14 22 Q60 8 106 16 Q112 46 110 76 Q62 90 18 80 Q10 52 14 22Z" stroke-width="1.25"/>
+          <path d="M37 15 Q40 48 40 85" opacity=".4"/>
+          <path d="M60 11 Q62 48 62 88" opacity=".4"/>
+          <path d="M83 13 Q86 48 86 86" opacity=".4"/>
+          <path d="M12.6 42 Q60 30 110.4 36" opacity=".4"/>
+          <path d="M13.6 62 Q60 52 110 56" opacity=".4"/>
+          <circle cx="74" cy="52" r="11.5" stroke="#5E6B75" stroke-width="1.1" stroke-dasharray="3 3"/>
+          <circle cx="14" cy="22" r="1.9" fill="currentColor"/>
+          <circle cx="106" cy="16" r="1.9" fill="currentColor"/>
+          <circle cx="110" cy="76" r="1.9" fill="currentColor"/>
+          <circle cx="18" cy="80" r="1.9" fill="currentColor"/>
+        </svg>
+        <h3>CAD-native machine learning</h3>
+        <p>
+          Networks that consume faces, edges and coedges directly — surface type, convexity,
+          uv-grid samples, and the topology graph that binds them. No mesh in the middle.
+        </p>
+        <span class="label">B-rep · UV-Net · Graph networks</span>
+      </article>
+
+      <article class="offer">
+        <svg viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width=".9" aria-hidden="true">
+          <path d="M20 20 L100 25 L95 74 L25 68Z" stroke-width="1.25"/>
+          <path d="M55 21.5 l8 .55 -3.6 3.3Z" fill="currentColor" stroke="none"/>
+          <path d="M98.6 47 l-.35 8 -3.3-3.6Z" fill="currentColor" stroke="none"/>
+          <path d="M64 71.6 l-8-.6 3.8-3.2Z" fill="currentColor" stroke="none"/>
+          <path d="M21.7 46 l.45-8 3.2 3.7Z" fill="currentColor" stroke="none"/>
+          <path d="M34 36 L86 40" opacity=".35" stroke-dasharray="2.5 3"/>
+          <path d="M34 54 L86 57" opacity=".35" stroke-dasharray="2.5 3"/>
+          <g stroke="#5E6B75" stroke-width="1.2">
+            <path d="M76 12 L87 23"/><path d="M87 12 L76 23"/>
+          </g>
+          <circle cx="20" cy="20" r="2.1" fill="currentColor"/>
+          <circle cx="100" cy="25" r="2.1" fill="currentColor"/>
+          <circle cx="95" cy="74" r="2.1" fill="currentColor"/>
+          <circle cx="25" cy="68" r="2.1" fill="currentColor"/>
+        </svg>
+        <h3>Pipelines that survive real files</h3>
+        <p>
+          STEP files in the wild are non-manifold, unclosed, and full of faces with no
+          evaluable geometry. I build extraction pipelines that detect those cases and
+          handle them, rather than failing on them overnight.
+        </p>
+        <span class="label">STEP · OpenCascade · Data engineering</span>
+      </article>
+
+      <article class="offer">
+        <svg viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width=".9" aria-hidden="true">
+          <path d="M18 68 L18 38 L46 38 L46 24 L74 24 L74 38 L102 38 L102 68Z" stroke-width="1.25"/>
+          <path d="M18 70 L18 84 M102 70 L102 84" opacity=".45"/>
+          <path d="M18 79 L102 79" opacity=".45"/>
+          <path d="M18 79 l6.5-2.3 0 4.6Z" fill="currentColor" stroke="none"/>
+          <path d="M102 79 l-6.5-2.3 0 4.6Z" fill="currentColor" stroke="none"/>
+          <path d="M60 24 L60 38" opacity=".35" stroke-dasharray="3.5 2.5"/>
+          <path d="M74 24 L94 11" stroke="#5E6B75"/>
+          <circle cx="98" cy="9" r="4.2" stroke="#5E6B75" stroke-width="1.1"/>
+        </svg>
+        <h3>Manufacturability and cost</h3>
+        <p>
+          Feature recognition, setup planning, and quoting models that connect geometry to
+          what a part actually costs to cut — and flag the features that make it unmakeable
+          before anyone commits to a price.
+        </p>
+        <span class="label">CNC · DFM · Cost modelling</span>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==================== DOMAINS ==================== -->
+<section class="sec" id="about">
+  <div class="wrap">
+
+    <div class="sec__head">
+      <span class="label">Where I've worked</span>
+      <h2>Production machine learning in regulated, high-stakes domains.</h2>
+      <p>
+        Manufacturing is where I settled. The discipline came from domains where a wrong
+        prediction carried real cost — a misread loan file, a needle placed off target, a
+        quote that loses money on every part.
+      </p>
+    </div>
+
+    <div class="doms">
+      <div class="dom">
+        <span class="label">Manufacturing</span>
+        <h3>Xometry</h3>
+        <p>
+          3D CAD and AI for on-demand manufacturing. B-rep feature extraction, geometric
+          deep learning, and the models behind automated CNC quoting.
+        </p>
+      </div>
+      <div class="dom">
+        <span class="label">Medtech</span>
+        <h3>CMU Robotics Institute</h3>
+        <p>
+          Multi-class segmentation of robotically acquired ultrasound — arteries, veins,
+          nerves — to plan safer needle insertion. Published at 3DV and NeurIPS ML4H.
+        </p>
+      </div>
+      <div class="dom">
+        <span class="label">Fintech</span>
+        <h3>Karza · Perfios</h3>
+        <p>
+          Document intelligence and risk systems for lending and KYC, where models run
+          under audit and every decision has to be explainable.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CONTACT ==================== -->
+<section class="cta sec" id="contact">
+  <div class="wrap cta__in">
+    <div>
+      <span class="label">Currently at Xometry</span>
+      <h2>Got a geometry problem that machine learning keeps failing on?</h2>
+      <p>
+        I take on a small number of consulting engagements — usually B-rep and point cloud
+        pipelines, manufacturability models, or a second opinion on a 3D architecture before
+        a team commits a year to it.
+      </p>
+    </div>
+
+    <div class="links">
+      <a class="link" href="mailto:vinitsarode5@gmail.com"><span>vinitsarode5@gmail.com</span><i>Email</i></a>
+      <a class="link" href="https://github.com/vinits5"><span>github.com/vinits5</span><i>Code</i></a>
+      <a class="link" href="https://scholar.google.com/citations?user=Zy0b_koAAAAJ"><span>Google Scholar</span><i>Papers</i></a>
+      <a class="link" href="#"><span>LinkedIn</span><i>Connect</i></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot__in">
+    <span class="label">Vinit Sarode — Hyderabad, India</span>
+    <span class="label">B-rep · Point clouds · CNC</span>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================================================================
+   HERO GEOMETRY
+
+   The part is defined the way a B-rep defines it: as a set of
+   analytic faces, each a parametric surface p(u,v). Every face is
+   sampled on a uv grid; annular faces carry a trimming mask that
+   removes samples falling inside a bolt hole.
+
+   All three representations are built from that one sampling:
+     point cloud  -> the unmasked samples
+     mesh         -> quads between adjacent samples, triangulated
+     B-rep        -> the face boundary curves only
+   ================================================================ */
+(function () {
+  var canvas = document.getElementById('gl');
+  if (!window.THREE || !canvas) return;
+
+  var TAU = Math.PI * 2;
+
+  // --- part parameters (mm-ish, scaled to unit-box for display) ---
+  var R_BORE = 0.34, R_HUB = 0.72, R_FLANGE = 1.45;
+  var Y0 = 0, Y_FLANGE = 0.32, Y_HUB = 1.05;
+  var BOLT_R = 0.155, BOLT_CIRCLE = 1.10, N_BOLTS = 4;
+
+  var boltCenters = [];
+  for (var b = 0; b < N_BOLTS; b++) {
+    var a = TAU * b / N_BOLTS + Math.PI / 4;
+    boltCenters.push([Math.cos(a) * BOLT_CIRCLE, Math.sin(a) * BOLT_CIRCLE]);
+  }
+
+  // trimming mask: false = sample lies inside a bolt hole, drop it
+  function notInBolt(x, z) {
+    for (var i = 0; i < boltCenters.length; i++) {
+      var dx = x - boltCenters[i][0], dz = z - boltCenters[i][1];
+      if (dx * dx + dz * dz < BOLT_R * BOLT_R * 1.04) return false;
+    }
+    return true;
+  }
+  function always() { return true; }
+
+  function cylFace(r, y0, y1, nu, nv) {
+    return { nu: nu, nv: nv, closedU: true, mask: always,
+      p: function (u, v) {
+        var t = u * TAU;
+        return [Math.cos(t) * r, y0 + (y1 - y0) * v, Math.sin(t) * r];
+      } };
+  }
+  function boltFace(cx, cz, y0, y1, nu, nv) {
+    return { nu: nu, nv: nv, closedU: true, mask: always,
+      p: function (u, v) {
+        var t = u * TAU;
+        return [cx + Math.cos(t) * BOLT_R, y0 + (y1 - y0) * v, cz + Math.sin(t) * BOLT_R];
+      } };
+  }
+  function annulusFace(r0, r1, y, nu, nv, mask) {
+    return { nu: nu, nv: nv, closedU: true, mask: mask,
+      p: function (u, v) {
+        var t = u * TAU, rr = r0 + (r1 - r0) * v;
+        return [Math.cos(t) * rr, y, Math.sin(t) * rr];
+      } };
+  }
+
+  var faces = [
+    cylFace(R_BORE,   Y0, Y_HUB,        64, 14),               // bore
+    cylFace(R_FLANGE, Y0, Y_FLANGE,     80, 8),                // flange OD
+    cylFace(R_HUB,    Y_FLANGE, Y_HUB,  64, 12),               // hub OD
+    annulusFace(R_HUB,  R_FLANGE, Y_FLANGE, 96, 13, notInBolt),// flange top
+    annulusFace(R_BORE, R_HUB,    Y_HUB,    64, 9,  always),   // hub top
+    annulusFace(R_BORE, R_FLANGE, Y0,       96, 15, notInBolt) // bottom
+  ];
+  for (var k = 0; k < boltCenters.length; k++) {
+    faces.push(boltFace(boltCenters[k][0], boltCenters[k][1], Y0, Y_FLANGE, 28, 7));
+  }
+
+  // ---- sample every face on its uv grid ----
+  var ptPos = [], triPos = [], triCount = 0;
+
+  faces.forEach(function (f) {
+    var grid = [];
+    for (var i = 0; i < f.nu; i++) {
+      grid[i] = [];
+      for (var j = 0; j < f.nv; j++) {
+        var u = f.closedU ? i / f.nu : i / (f.nu - 1);
+        var v = j / (f.nv - 1);
+        var q = f.p(u, v);
+        var ok = f.mask(q[0], q[2]);
+        grid[i][j] = { q: q, ok: ok };
+        if (ok) ptPos.push(q[0], q[1], q[2]);
+      }
+    }
+    var iMax = f.closedU ? f.nu : f.nu - 1;
+    for (var ii = 0; ii < iMax; ii++) {
+      var i2 = (ii + 1) % f.nu;
+      for (var jj = 0; jj < f.nv - 1; jj++) {
+        var A = grid[ii][jj], B = grid[i2][jj], C = grid[i2][jj + 1], D = grid[ii][jj + 1];
+        if (!(A.ok && B.ok && C.ok && D.ok)) continue;   // trimmed away
+        triPos.push(A.q[0],A.q[1],A.q[2], B.q[0],B.q[1],B.q[2], C.q[0],C.q[1],C.q[2]);
+        triPos.push(A.q[0],A.q[1],A.q[2], C.q[0],C.q[1],C.q[2], D.q[0],D.q[1],D.q[2]);
+        triCount += 2;
+      }
+    }
+  });
+
+  // ---- B-rep edges: the circular boundary curves between faces ----
+  var edgeSegs = [], edgeCount = 0;
+  function circleEdge(cx, cz, r, y, seg) {
+    seg = seg || 96;
+    for (var i = 0; i < seg; i++) {
+      var t0 = TAU * i / seg, t1 = TAU * (i + 1) / seg;
+      edgeSegs.push(cx + Math.cos(t0) * r, y, cz + Math.sin(t0) * r);
+      edgeSegs.push(cx + Math.cos(t1) * r, y, cz + Math.sin(t1) * r);
+    }
+    edgeCount++;
+  }
+  circleEdge(0, 0, R_BORE,   Y_HUB);
+  circleEdge(0, 0, R_BORE,   Y0);
+  circleEdge(0, 0, R_HUB,    Y_HUB);
+  circleEdge(0, 0, R_HUB,    Y_FLANGE);
+  circleEdge(0, 0, R_FLANGE, Y_FLANGE);
+  circleEdge(0, 0, R_FLANGE, Y0);
+  boltCenters.forEach(function (c) {
+    circleEdge(c[0], c[1], BOLT_R, Y_FLANGE, 40);
+    circleEdge(c[0], c[1], BOLT_R, Y0, 40);
+  });
+
+  // ================= scene =================
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+  camera.position.set(0, 1.45, 4);
+  camera.lookAt(0, 0, 0);
+
+  scene.add(new THREE.AmbientLight(0x3E3830, 0.75));
+  var key = new THREE.DirectionalLight(0xFFF3E2, 1.05); key.position.set(3, 5, 4); scene.add(key);
+  var fill = new THREE.DirectionalLight(0xA9BCC9, 0.6); fill.position.set(-4, 1.5, -3); scene.add(fill);
+
+  var pivot = new THREE.Group();      // screen-space placement
+  scene.add(pivot);
+  var rot = new THREE.Group();        // spin, about the part's own axis
+  pivot.add(rot);
+  var group = new THREE.Group();      // geometry, centred on that axis
+  group.position.y = -Y_HUB / 2;
+  rot.add(group);
+
+  function buf(arr) {
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(arr), 3));
+    return g;
+  }
+
+  // 1 — point cloud
+  var ptMat = new THREE.PointsMaterial({
+    color: 0xCFC7BB, size: 0.016, sizeAttenuation: true,
+    transparent: true, opacity: 1
+  });
+  var points = new THREE.Points(buf(ptPos), ptMat);
+  group.add(points);
+
+  // 2 — mesh + triangulation overlay
+  var meshGeo = buf(triPos);
+  meshGeo.computeVertexNormals();
+  var meshMat = new THREE.MeshPhongMaterial({
+    color: 0x35322D, specular: 0xC2CBD1, shininess: 44,
+    side: THREE.DoubleSide, transparent: true, opacity: 0,
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+  });
+  var mesh = new THREE.Mesh(meshGeo, meshMat);
+  mesh.visible = false;
+  group.add(mesh);
+
+  var triMat = new THREE.LineBasicMaterial({ color: 0x8A8177, transparent: true, opacity: 0 });
+  var triWire = new THREE.LineSegments(new THREE.WireframeGeometry(meshGeo), triMat);
+  triWire.visible = false;
+  group.add(triWire);
+
+  // 3 — B-rep wireframe
+  var brepMat = new THREE.LineBasicMaterial({ color: 0xF0EAE0, transparent: true, opacity: 0 });
+  var brep = new THREE.LineSegments(buf(edgeSegs), brepMat);
+  brep.visible = false;
+  group.add(brep);
+
+  // ================= readout =================
+  var elStage = document.getElementById('ro-stage');
+  var elData  = document.getElementById('ro-data');
+  var elIdx   = document.getElementById('ro-idx');
+  function comma(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  var STAGES = [
+    { name: 'Point cloud', data: comma(ptPos.length / 3) + ' points × 3' },
+    { name: 'Mesh',        data: comma(triCount) + ' triangles' },
+    { name: 'B-rep',       data: faces.length + ' faces · ' + edgeCount + ' edges' }
+  ];
+  var shown = -1;
+  function setReadout(i) {
+    if (i === shown) return;
+    shown = i;
+    elStage.textContent = STAGES[i].name;
+    elData.textContent = STAGES[i].data;
+    elIdx.textContent = '0' + (i + 1) + ' / 03';
+  }
+
+  // ================= animation =================
+  var CYCLE = 5.4;               // seconds per representation
+  var FADE = 0.30;               // fraction of a stage spent crossfading
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var mx = 0, my = 0;
+
+  canvas.parentElement.addEventListener('pointermove', function (e) {
+    var r = canvas.getBoundingClientRect();
+    mx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+    my = ((e.clientY - r.top) / r.height - 0.5) * 2;
+  });
+
+  function weights(p) {                       // p in [0,3)
+    var w = [0, 0, 0], k = Math.floor(p), f = p - k;
+    if (f < 1 - FADE) { w[k] = 1; }
+    else {
+      var u = (f - (1 - FADE)) / FADE, e = u * u * (3 - 2 * u);
+      w[k] = 1 - e; w[(k + 1) % 3] = e;
+    }
+    return w;
+  }
+
+  function apply(w) {
+    ptMat.opacity = w[0];
+    points.visible = w[0] > 0.01;
+
+    // the solid lingers faintly under the wireframe, so edges read
+    // as a real object with hidden lines removed
+    meshMat.opacity = w[1] * 0.9 + w[2] * 0.16;
+    mesh.visible = meshMat.opacity > 0.01;
+
+    triMat.opacity = w[1] * 0.5;
+    triWire.visible = triMat.opacity > 0.01;
+
+    brepMat.opacity = w[2];
+    brep.visible = w[2] > 0.01;
+
+    var lead = w[0] > w[1] ? (w[0] > w[2] ? 0 : 2) : (w[1] > w[2] ? 1 : 2);
+    setReadout(lead);
+  }
+
+  var V_FOV = 34 * Math.PI / 180;
+  var lastW = 0, lastH = 0, offX = 0, offY = 0;
+
+  function resize() {
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h || (w === lastW && h === lastH)) return;
+    lastW = w; lastH = h;
+
+    renderer.setSize(w, h, false);
+    var asp = w / h;
+    camera.aspect = asp;
+
+    // wide viewports push the part up and right, clearing the lower-left for copy
+    var wide = w >= 901;
+    offX = wide ? 0.62 : 0;
+    offY = wide ? 0.20 : 0;
+    pivot.position.set(offX, offY, 0);
+
+    // pull the camera back just far enough that the offset part still fits
+    var t = Math.tan(V_FOV / 2);
+    var needH = 1.72 + 2 * Math.abs(offY);
+    var needW = 3.30 + 2 * Math.abs(offX);
+    camera.position.z = Math.max(needH / 2 / t, needW / 2 / (t * asp));
+    camera.updateProjectionMatrix();
+  }
+
+  var clock = new THREE.Clock();
+
+  if (reduce) {
+    // no motion: hold the B-rep view, which is the point of the sequence
+    resize();
+    rot.rotation.y = 0.62;
+    apply([0, 0, 1]);
+    renderer.render(scene, camera);
+    window.addEventListener('resize', function () {
+      resize(); renderer.render(scene, camera);
+    });
+  } else {
+    (function loop() {
+      requestAnimationFrame(loop);
+      resize();
+      var t = clock.getElapsedTime();
+      rot.rotation.y = 0.4 + t * 0.135;
+      rot.rotation.x = Math.sin(t * 0.24) * 0.045 + my * 0.05;
+      camera.position.x = mx * 0.20;
+      camera.lookAt(0, 0, 0);
+      apply(weights((t % (CYCLE * 3)) / CYCLE));
+      renderer.render(scene, camera);
+    })();
+  }
+})();
+</script>
+</body>
+</html>
+
+</body>
+</html>

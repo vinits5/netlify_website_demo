@@ -1,0 +1,38 @@
+# Netlify configuration
+# Static site, no build step — Netlify serves this directory as-is.
+
+[build]
+  publish = "."
+
+# ---------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+
+    # Content-Security-Policy is left off by default because it is the one
+    # header that can silently break the page. The policy below is correct
+    # for the current site (inline CSS/JS, three.js from cdnjs, Google Fonts).
+    # Uncomment it, deploy, and check the browser console before trusting it.
+    #
+    # Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'self'; form-action 'self'"
+
+# ---------------------------------------------------------------
+# Caching
+# HTML is revalidated every request so edits go live immediately.
+# Fingerprinted assets can be cached hard once you add a build step.
+# ---------------------------------------------------------------
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/favicon.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
